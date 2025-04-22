@@ -1,88 +1,51 @@
-# config.py
-# Configuration centrale du projet
+import os
 import torch
-from torch.utils.data import DataLoader, random_split
 from torchvision.datasets import Kitti
-import torchvision.transforms as transforms
-import config
-from src.data_module.data_transforms import get_train_transforms, get_val_test_transforms
+from tqdm import tqdm
 
-# Chemins
-DATA_ROOT = './data'
-MODEL_SAVE_PATH = './models'
-RESULTS_PATH = './results'
+def download_kitti_dataset(data_dir="./data"):
+    """
+    Télécharge le dataset KITTI
+    
+    Args:
+        data_dir: Chemin du dossier où télécharger le dataset
+    """
+    print("Téléchargement du dataset KITTI...")
+    
+    # Vérifier si le dossier Kitti existe déjà
+    if not os.path.exists(os.path.join(data_dir, "Kitti", "raw")):
+        os.makedirs(data_dir, exist_ok=True)
+        
+        print("Téléchargement du dataset d'entraînement...")
+        train_dataset = Kitti(
+            root=data_dir,
+            train=True,
+            download=True,
+            transform=None  # Pas de transformation ici pour garder le format original
+        )
+        
+        print("Téléchargement du dataset de test...")
+        test_dataset = Kitti(
+            root=data_dir,
+            train=False,
+            download=True,
+            transform=None
+        )
+        
+        print("Téléchargement terminé !")
+    else:
+        print("Le dataset KITTI est déjà téléchargé.")
+    
+    # Vérifier le nombre d'images
+    train_dir = os.path.join(data_dir, "Kitti", "raw", "training", "image_2")
+    if os.path.exists(train_dir):
+        num_images = len([f for f in os.listdir(train_dir) if f.endswith('.png')])
+        print(f"Nombre d'images d'entraînement: {num_images}")
+    else:
+        print("Attention: Le dossier d'images d'entraînement n'a pas été trouvé.")
+    
+    return os.path.join(data_dir, "Kitti", "raw")
 
-# Paramètres du dataset
-IMG_SIZE = (375, 1242)
-TRAIN_VAL_SPLIT = 0.8
-RANDOM_SEED = 42
-
-# Paramètres d'entraînement
-BATCH_SIZE = 8
-NUM_WORKERS = 2
-LEARNING_RATE = 1e-4
-WEIGHT_DECAY = 1e-5
-NUM_EPOCHS = 30
-
-# Paramètres du modèle
-CONFIDENCE_THRESHOLD = 0.5
-
-# Accès au GPU 
-DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
-def load_datasets():
-    # Download and prepare the training set
-    train_dataset = Kitti(
-        root=config.DATA_ROOT,
-        train=True,
-        download=True,
-        transform=get_train_transforms()
-    )
-    
-    # Download and prepare the test set
-    test_dataset = Kitti(
-        root=config.DATA_ROOT,
-        train=False,
-        download=True,
-        transform=get_val_test_transforms()
-    )
-    
-    # Create train/val split
-    total_train_size = len(train_dataset)
-    val_size = int((1 - config.TRAIN_VAL_SPLIT) * total_train_size)
-    train_size = total_train_size - val_size
-    
-    train_subset, val_subset = random_split(
-        train_dataset,
-        [train_size, val_size],
-        generator=torch.Generator().manual_seed(config.RANDOM_SEED)
-    )
-    
-    return train_subset, val_subset, test_dataset
-
-def get_data_loaders():
-    train_subset, val_subset, test_dataset = load_datasets()
-    
-    train_loader = DataLoader(
-        train_subset,
-        batch_size=config.BATCH_SIZE,
-        shuffle=True,
-        num_workers=config.NUM_WORKERS
-    )
-    
-    val_loader = DataLoader(
-        val_subset,
-        batch_size=config.BATCH_SIZE,
-        shuffle=False,
-        num_workers=config.NUM_WORKERS
-    )
-    
-    test_loader = DataLoader(
-        test_dataset,
-        batch_size=config.BATCH_SIZE,
-        shuffle=False,
-        num_workers=config.NUM_WORKERS
-    )
-    
-    return train_loader, val_loader, test_loader
-
+if __name__ == "__main__":
+    kitti_path = download_kitti_dataset()
+    print(f"Dataset KITTI téléchargé à {kitti_path}")
